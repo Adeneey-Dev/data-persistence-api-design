@@ -1,98 +1,350 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+#  Data Persistence Profile Intelligence API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+> A production-ready REST API that enriches a person's name with AI-powered demographic data — gender, age group, and nationality - sourced from three external APIs, persisted in PostgreSQL, and served through a clean, well-structured interface.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+##  Live API
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
-
-```bash
-$ npm install
+```
+https://data-persistence-api-design-adeneey-dev178-xguy47zt.leapcell.dev
 ```
 
-## Compile and run the project
+---
 
-```bash
-# development
-$ npm run start
+---
 
-# watch mode
-$ npm run start:dev
+##  Live GET API
 
-# production mode
-$ npm run start:prod
+```
+https://data-persistence-api-design-adeneey-dev178-xguy47zt.leapcell.dev/api/profiles
 ```
 
-## Run tests
+---
 
-```bash
-# unit tests
-$ npm run test
 
-# e2e tests
-$ npm run test:e2e
+##  Table of Contents
 
-# test coverage
-$ npm run test:cov
+- [Overview](#-overview)
+- [Tech Stack](#-tech-stack)
+- [Architecture](#-architecture)
+- [API Endpoints](#-api-endpoints)
+- [Classification Logic](#-classification-logic)
+- [Error Handling](#-error-handling)
+- [Running Locally](#-running-locally)
+- [Environment Variables](#-environment-variables)
+- [Deployment](#-deployment)
+
+---
+
+##  Overview
+
+The **Profile Intelligence API** accepts a person's name and automatically:
+
+1. Calls **Genderize.io** to predict gender and probability
+2. Calls **Agify.io** to predict age
+3. Calls **Nationalize.io** to predict nationality
+4. Classifies the age into a human-readable group
+5. Stores the result in a **PostgreSQL** database
+6. Returns structured, consistent JSON on every request
+
+Duplicate names are handled gracefully — submitting the same name twice returns the existing profile without hitting the external APIs again (**idempotent design**).
+
+---
+
+##  Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | [NestJS](https://nestjs.com/) (Node.js) |
+| Language | TypeScript |
+| Database | PostgreSQL (hosted on [Supabase](https://supabase.com)) |
+| ORM | TypeORM |
+| Deployment | [Leapcell](https://leapcell.io) |
+| ID Generation | UUID v4 |
+| External APIs | Genderize, Agify, Nationalize |
+
+---
+
+##  Architecture
+
+```
+Client Request
+      │
+      ▼
+ NestJS Controller  (/api/profiles)
+      │
+      ▼
+ ProfilesService
+      │
+      ├──► Genderize API  (gender + probability)
+      ├──► Agify API      (age)
+      └──► Nationalize API (nationality)
+              │
+              ▼
+       Classification Logic
+       (age group, top country)
+              │
+              ▼
+       PostgreSQL via TypeORM
+              │
+              ▼
+       JSON Response (201 / 200)
 ```
 
-## Deployment
+---
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+##  API Endpoints
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+### Base URL
+```
+https://data-persistence-api-design-adeneey-dev178-xguy47zt.leapcell.dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+---
 
-## Resources
+### 1. Create Profile
+```http
+POST /api/profiles
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+**Request Body:**
+```json
+{
+  "name": "emmanuel"
+}
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+**Success Response (201 Created):**
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "b3f9c1e2-7d4a-4c91-9c2a-1f0a8e5b6d12",
+    "name": "emmanuel",
+    "gender": "male",
+    "gender_probability": 0.99,
+    "sample_size": 90212,
+    "age": 25,
+    "age_group": "adult",
+    "country_id": "NG",
+    "country_probability": 0.85,
+    "created_at": "2026-04-17T12:00:00.000Z"
+  }
+}
+```
 
-## Support
+**Duplicate Name Response (200 OK):**
+```json
+{
+  "status": "success",
+  "message": "Profile already exists",
+  "data": { ...existing profile }
+}
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+---
 
-## Stay in touch
+### 2. Get All Profiles
+```http
+GET /api/profiles
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+**Optional Query Filters (case-insensitive):**
 
-## License
+| Parameter | Example |
+|---|---|
+| `gender` | `?gender=male` |
+| `country_id` | `?country_id=NG` |
+| `age_group` | `?age_group=adult` |
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+**Combined:** `/api/profiles?gender=male&country_id=NG&age_group=adult`
+
+**Response (200 OK):**
+```json
+{
+  "status": "success",
+  "count": 2,
+  "data": [
+    {
+      "id": "id-1",
+      "name": "emmanuel",
+      "gender": "male",
+      "age": 25,
+      "age_group": "adult",
+      "country_id": "NG"
+    }
+  ]
+}
+```
+
+---
+
+### 3. Get Single Profile
+```http
+GET /api/profiles/:id
+```
+
+**Response (200 OK):**
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "b3f9c1e2-7d4a-4c91-9c2a-1f0a8e5b6d12",
+    "name": "emmanuel",
+    "gender": "male",
+    "gender_probability": 0.99,
+    "sample_size": 90212,
+    "age": 25,
+    "age_group": "adult",
+    "country_id": "NG",
+    "country_probability": 0.85,
+    "created_at": "2026-04-17T12:00:00.000Z"
+  }
+}
+```
+
+---
+
+### 4. Delete Profile
+```http
+DELETE /api/profiles/:id
+```
+
+**Response:** `204 No Content`
+
+---
+
+##  Classification Logic
+
+### Age Groups (from Agify)
+
+| Age Range | Group |
+|---|---|
+| 0 – 12 | `child` |
+| 13 – 19 | `teenager` |
+| 20 – 59 | `adult` |
+| 60+ | `senior` |
+
+### Nationality (from Nationalize)
+The country with the **highest probability** in the response array is selected as `country_id`.
+
+---
+
+##  Error Handling
+
+All errors follow a consistent structure:
+
+```json
+{
+  "status": "error",
+  "message": "Description of what went wrong"
+}
+```
+
+| Status Code | Meaning |
+|---|---|
+| `400` | Missing or empty name field |
+| `404` | Profile not found |
+| `422` | Invalid data type (name must be a string) |
+| `502` | External API returned null/invalid data |
+| `500` | Internal server error |
+
+### 502 Edge Cases
+
+| Scenario | Trigger |
+|---|---|
+| Genderize returns `gender: null` or `count: 0` | 502 — Genderize returned an invalid response |
+| Agify returns `age: null` | 502 — Agify returned an invalid response |
+| Nationalize returns empty country array | 502 — Nationalize returned an invalid response |
+
+---
+
+##  Running Locally
+
+### Prerequisites
+- Node.js v18+
+- npm
+- A PostgreSQL database (Supabase free tier works)
+
+### Steps
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/Adeneey-Dev/data-persistence-api-design.git
+
+# 2. Navigate into the project
+cd data-persistence-api-design
+
+# 3. Install dependencies
+npm install
+
+# 4. Create your environment file
+cp .env.example .env
+# Fill in your DATABASE_URL in the .env file
+
+# 5. Start in development mode
+npm run start:dev
+```
+
+Server will be running at `http://localhost:3000`
+
+---
+
+##  Environment Variables
+
+Create a `.env` file in the root directory:
+
+```env
+DATABASE_URL=postgresql://user:password@host:5432/database
+PORT=3000
+```
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | Full PostgreSQL connection string |
+| `PORT` | Port the server runs on (default: 3000) |
+
+>  Never commit your `.env` file. It is already in `.gitignore`.
+
+---
+
+##  Deployment
+
+This API is deployed on **Leapcell** with the following settings:
+
+| Setting | Value |
+|---|---|
+| Framework | NestJS |
+| Runtime | Node.js 20 (Debian) |
+| Build Command | `npm install && npm run build` |
+| Start Command | `npm run start:prod` |
+| Database | Supabase PostgreSQL (Session Pooler) |
+
+---
+
+##  Project Structure
+
+```
+src/
+├── app.module.ts          # Root module — DB config, CORS
+├── main.ts                # Entry point — global prefix, CORS
+└── profiles/
+    ├── profile.entity.ts      # TypeORM entity (DB schema)
+    ├── profiles.module.ts     # Feature module
+    ├── profiles.controller.ts # Route handlers
+    └── profiles.service.ts    # Business logic + external API calls
+```
+
+---
+
+##  Author
+
+**Adeneey Dev**
+GitHub: [@Adeneey-Dev](https://github.com/Adeneey-Dev)
+
+---
+
+##  License
+
+This project is open source and available under the [MIT License](LICENSE).
